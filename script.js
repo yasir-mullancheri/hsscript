@@ -1061,13 +1061,13 @@ function updateAddonPricing() {
 
 function updateDiscountDisplay() {
     const discountDisplay = document.getElementById('discountDisplay');
-    const addonCount = selectedAddons.length;
-    
     if (!discountDisplay) return;
+    
+    const addonCount = selectedAddons.length;
     
     if (addonCount === 0) {
         discountDisplay.classList.remove('show');
-        discountDisplay.textContent = '';
+        discountDisplay.innerHTML = '';
     } else if (addonCount === 2) {
         discountDisplay.classList.add('show');
         discountDisplay.innerHTML = '<i class="fas fa-tag"></i> 25% DISCOUNT APPLIED!<br>Two add-ons selected';
@@ -1076,7 +1076,7 @@ function updateDiscountDisplay() {
         discountDisplay.innerHTML = '<i class="fas fa-gift"></i> SPECIAL BUNDLE PRICING!<br>All three add-ons selected';
     } else {
         discountDisplay.classList.remove('show');
-        discountDisplay.textContent = '';
+        discountDisplay.innerHTML = '';
     }
 }
 
@@ -1111,7 +1111,9 @@ function calculateAddonTotal(deviceCount) {
 
 function updatePricingSummary() {
     const deviceCount = Object.keys(selectedDevices).length;
-    const devicePrice = selectedPlan === 'monthly' ? 300 : 1500;
+    
+    // Fix the device price based on selected plan
+    const devicePrice = selectedPlan === 'monthly' ? 300 : 1500; // This was the issue - it was hardcoded to 39 for monthly
     
     let deviceTotal = deviceCount * devicePrice;
     let addonTotal = calculateAddonTotal(deviceCount);
@@ -1135,7 +1137,6 @@ function updatePricingSummary() {
             discountNote = ' (special bundle pricing)';
         }
         
-        const addonPricePerDevice = addonTotal / deviceCount;
         addonDescription = `<p><strong>${selectedAddonNames.join(', ')}</strong> add-ons × <strong>${deviceCount}</strong> devices = <strong>$${addonTotal.toLocaleString()}</strong>${discountNote}</p>`;
     }
     
@@ -1151,6 +1152,49 @@ function updatePricingSummary() {
     if (totalAmountElement) {
         totalAmountElement.textContent = `$${totalAmount.toLocaleString()}`;
     }
+}
+
+// Update the loadFinalSummary function as well
+function loadFinalSummary() {
+    const finalSummary = document.getElementById('finalOrderSummary');
+    const deviceCount = Object.keys(selectedDevices).length;
+    const devicePrice = selectedPlan === 'monthly' ? 300 : 1500; // Fix this too
+    
+    // Create addon description
+    let addonSummary = '';
+    if (selectedAddons.length > 0) {
+        const addonNames = {
+            'automation': 'Automation+ Add-on',
+            'experience': 'Experience+ Add-on', 
+            'performance': 'Performance+ Add-on'
+        };
+        const selectedAddonNames = selectedAddons.map(addon => addonNames[addon]);
+        addonSummary = `<p><strong>Add-ons:</strong> ${selectedAddonNames.join(', ')}</p>`;
+    }
+    
+    finalSummary.innerHTML = `
+        <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: var(--border-radius); margin-bottom: 1rem;">
+            <h4>Contact Information</h4>
+            <p><strong>Name:</strong> ${document.getElementById('fullName').value}</p>
+            <p><strong>Email:</strong> ${document.getElementById('businessEmail').value}</p>
+            <p><strong>Phone:</strong> ${document.getElementById('phoneNumber').value}</p>
+            <p><strong>Organization:</strong> ${document.getElementById('organizationName').value}</p>
+        </div>
+        
+        <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: var(--border-radius); margin-bottom: 1rem;">
+            <h4>Cloud Test Go - Order Summary</h4>
+            <p><strong>Device Types:</strong> ${selectedDeviceTypes.join(', ')}</p>
+            <p><strong>Countries:</strong> ${selectedCountries.join(', ')}</p>
+            <p><strong>Cities:</strong> ${selectedCities.join(', ')}</p>
+            <p><strong>Selected Devices:</strong> ${deviceCount}</p>
+            <p><strong>Plan:</strong> ${selectedPlan === 'yearly' ? 'Yearly' : 'Monthly'} ($${devicePrice}/${selectedPlan === 'yearly' ? 'year' : 'month'})</p>
+            ${addonSummary}
+        </div>
+        
+        <div style="background: var(--primary-color); color: white; padding: 1.5rem; border-radius: var(--border-radius); text-align: center;">
+            <h4>Total Amount: $${totalAmount.toLocaleString()}</h4>
+        </div>
+    `;
 }
 
 // ===== PAYMENT & COMPLETION =====

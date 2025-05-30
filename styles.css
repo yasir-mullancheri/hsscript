@@ -1263,6 +1263,7 @@ body {
     transition: var(--transition);
     opacity: 0;
     transform: translateY(-10px);
+    background: transparent;
 }
 
 .discount-display.show {
@@ -1276,6 +1277,17 @@ body {
 
 .discount-display i {
     margin-right: 0.5rem;
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* ===== PRICING NOTE ===== */
