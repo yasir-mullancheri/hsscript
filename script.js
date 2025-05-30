@@ -9,6 +9,7 @@ let selectedAddons = [];
 let activeFilters = [];
 let totalAmount = 0;
 
+// ===== DEVICE DATA =====
  const deviceData = [
     { id: 1, name: "Galaxy S9 Plus", country: "Australia", city: "Sydney", type: "android", network: "WiFi", audio: false },
     { id: 2, name: "iPhone 11", country: "Australia", city: "Sydney", type: "ios", network: "WiFi", audio: false },
@@ -357,7 +358,6 @@ let totalAmount = 0;
     { id: 345, name: "Google Pixel 3a XL", country: "US", city: "Riverside", type: "android", network: "WiFi", audio: false }
 ];
 
-
 // ===== COUNTRY DATA =====
 const countryData = {
     'Australia': ['Sydney'],
@@ -434,8 +434,10 @@ function validateEmail(email) {
 }
 
 function validatePhone(phone) {
-    const re = /^[\+]?[1-9][\d]{0,15}$/;
-    return phone === '' || re.test(phone.replace(/[\s\-\(\)]/g, ''));
+    // Remove all spaces, dashes, parentheses, and plus signs for validation
+    const cleanPhone = phone.replace(/[\s\-\(\)\+]/g, '');
+    // Check if it's empty (optional field) or contains only digits and is reasonable length
+    return phone === '' || (/^\d{7,15}$/.test(cleanPhone));
 }
 
 // ===== NAVIGATION FUNCTIONS =====
@@ -483,6 +485,7 @@ function nextStep(step) {
                     break;
                 case 6:
                     updatePricingSummary();
+                    updateAddonPricing();
                     break;
                 case 7:
                     loadFinalSummary();
@@ -545,6 +548,7 @@ function validateStep1() {
     const fullName = document.getElementById('fullName').value.trim();
     const businessEmail = document.getElementById('businessEmail').value.trim();
     const phoneNumber = document.getElementById('phoneNumber').value.trim();
+    const organizationName = document.getElementById('organizationName').value.trim();
     
     if (!fullName) {
         showError('fullName', 'Full name is required');
@@ -559,8 +563,16 @@ function validateStep1() {
         isValid = false;
     }
     
-    if (phoneNumber && !validatePhone(phoneNumber)) {
-        showError('phoneNumber', 'Please enter a valid phone number');
+    if (!phoneNumber) {
+        showError('phoneNumber', 'Phone number is required');
+        isValid = false;
+    } else if (!validatePhone(phoneNumber)) {
+        showError('phoneNumber', 'Please enter a valid phone number (numbers only, 7-15 digits)');
+        isValid = false;
+    }
+    
+    if (!organizationName) {
+        showError('organizationName', 'Organization name is required');
         isValid = false;
     }
     
@@ -1027,66 +1039,118 @@ function toggleAddon(addon, isSelected) {
         card.classList.remove('selected');
     }
     
-    updateAddonPricing();
+    updateDiscountDisplay();
     updatePricingSummary();
 }
 
 function updateAddonPricing() {
-    const addonCount = selectedAddons.length;
-    let addonPrice = 0;
+    const automationPrice = document.getElementById('automation-price');
+    const experiencePrice = document.getElementById('experience-price');
+    const performancePrice = document.getElementById('performance-price');
     
     if (selectedPlan === 'yearly') {
-        if (addonCount === 1) addonPrice = 200;
-        else if (addonCount === 2) addonPrice = 200;
-        else if (addonCount === 3) addonPrice = 500;
+        if (automationPrice) automationPrice.textContent = '$200/device/year';
+        if (experiencePrice) experiencePrice.textContent = '$200/device/year';
+        if (performancePrice) performancePrice.textContent = '$200/device/year';
     } else {
-        if (addonCount === 1) addonPrice = 100;
-        else if (addonCount === 2) addonPrice = 150;
-        else if (addonCount === 3) addonPrice = 250;
+        if (automationPrice) automationPrice.textContent = '$100/device/month';
+        if (experiencePrice) experiencePrice.textContent = '$100/device/month';
+        if (performancePrice) performancePrice.textContent = '$100/device/month';
+    }
+}
+
+function updateDiscountDisplay() {
+    const discountDisplay = document.getElementById('discountDisplay');
+    const addonCount = selectedAddons.length;
+    
+    if (!discountDisplay) return;
+    
+    if (addonCount === 0) {
+        discountDisplay.classList.remove('show');
+        discountDisplay.textContent = '';
+    } else if (addonCount === 2) {
+        discountDisplay.classList.add('show');
+        discountDisplay.innerHTML = '<i class="fas fa-tag"></i> 25% DISCOUNT APPLIED!<br>Two add-ons selected';
+    } else if (addonCount === 3) {
+        discountDisplay.classList.add('show');
+        discountDisplay.innerHTML = '<i class="fas fa-gift"></i> SPECIAL BUNDLE PRICING!<br>All three add-ons selected';
+    } else {
+        discountDisplay.classList.remove('show');
+        discountDisplay.textContent = '';
+    }
+}
+
+function calculateAddonTotal(deviceCount) {
+    if (selectedAddons.length === 0) {
+        return 0;
     }
     
-    // Update price displays
-    const suffix = selectedPlan === 'yearly' ? '/device/year' : '/device/month';
-    const priceText = addonCount === 3 ? `${addonPrice}${suffix} (all 3)` : `${addonPrice}${suffix}`;
+    const addonCount = selectedAddons.length;
+    let addonPricePerDevice = 0;
     
-    document.getElementById('exp-price').textContent = priceText;
-    document.getElementById('perf-price').textContent = priceText;
-    document.getElementById('media-price').textContent = priceText;
+    if (selectedPlan === 'yearly') {
+        if (addonCount === 1) {
+            addonPricePerDevice = 200;
+        } else if (addonCount === 2) {
+            addonPricePerDevice = 300; // Discounted price for 2 addons
+        } else if (addonCount === 3) {
+            addonPricePerDevice = 500; // Special bundle price for 3 addons
+        }
+    } else { // monthly
+        if (addonCount === 1) {
+            addonPricePerDevice = 100;
+        } else if (addonCount === 2) {
+            addonPricePerDevice = 150; // Discounted price for 2 addons
+        } else if (addonCount === 3) {
+            addonPricePerDevice = 250; // Special bundle price for 3 addons
+        }
+    }
+    
+    return deviceCount * addonPricePerDevice;
 }
 
 function updatePricingSummary() {
     const deviceCount = Object.keys(selectedDevices).length;
-    const devicePrice = selectedPlan === 'monthly' ? 39 : 1500;
+    const devicePrice = selectedPlan === 'monthly' ? 300 : 1500;
     
     let deviceTotal = deviceCount * devicePrice;
-    let addonTotal = 0;
-    
-    if (selectedAddons.length > 0) {
-        const addonCount = selectedAddons.length;
-        let addonPricePerDevice = 0;
-        
-        if (selectedPlan === 'yearly') {
-            if (addonCount === 1) addonPricePerDevice = 200;
-            else if (addonCount === 2) addonPricePerDevice = 200;
-            else if (addonCount === 3) addonPricePerDevice = 500;
-        } else {
-            if (addonCount === 1) addonPricePerDevice = 100;
-            else if (addonCount === 2) addonPricePerDevice = 150;
-            else if (addonCount === 3) addonPricePerDevice = 250;
-        }
-        
-        addonTotal = deviceCount * addonPricePerDevice;
-    }
+    let addonTotal = calculateAddonTotal(deviceCount);
     
     totalAmount = deviceTotal + addonTotal;
     
-    const orderDetails = document.getElementById('orderDetails');
-    orderDetails.innerHTML = `
-        <p><strong>${deviceCount}</strong> devices × <strong>${devicePrice}</strong> = <strong>${deviceTotal.toLocaleString()}</strong></p>
-        ${selectedAddons.length > 0 ? `<p><strong>${selectedAddons.length}</strong> add-ons × <strong>${deviceCount}</strong> devices = <strong>${addonTotal.toLocaleString()}</strong></p>` : ''}
-    `;
+    // Create addon description for summary
+    let addonDescription = '';
+    if (selectedAddons.length > 0) {
+        const addonNames = {
+            'automation': 'Automation+',
+            'experience': 'Experience+', 
+            'performance': 'Performance+'
+        };
+        const selectedAddonNames = selectedAddons.map(addon => addonNames[addon]);
+        
+        let discountNote = '';
+        if (selectedAddons.length === 2) {
+            discountNote = ' (25% discount applied)';
+        } else if (selectedAddons.length === 3) {
+            discountNote = ' (special bundle pricing)';
+        }
+        
+        const addonPricePerDevice = addonTotal / deviceCount;
+        addonDescription = `<p><strong>${selectedAddonNames.join(', ')}</strong> add-ons × <strong>${deviceCount}</strong> devices = <strong>$${addonTotal.toLocaleString()}</strong>${discountNote}</p>`;
+    }
     
-    document.getElementById('totalAmount').textContent = `${totalAmount.toLocaleString()}`;
+    const orderDetails = document.getElementById('orderDetails');
+    if (orderDetails) {
+        orderDetails.innerHTML = `
+            <p><strong>Cloud Test Go</strong> - <strong>${deviceCount}</strong> devices × <strong>$${devicePrice}</strong> = <strong>$${deviceTotal.toLocaleString()}</strong></p>
+            ${addonDescription}
+        `;
+    }
+    
+    const totalAmountElement = document.getElementById('totalAmount');
+    if (totalAmountElement) {
+        totalAmountElement.textContent = `$${totalAmount.toLocaleString()}`;
+    }
 }
 
 // ===== PAYMENT & COMPLETION =====
@@ -1097,24 +1161,37 @@ function proceedToPayment() {
 function loadFinalSummary() {
     const finalSummary = document.getElementById('finalOrderSummary');
     const deviceCount = Object.keys(selectedDevices).length;
-    const devicePrice = selectedPlan === 'monthly' ? 39 : 1500;
+    const devicePrice = selectedPlan === 'monthly' ? 300 : 1500;
+    
+    // Create addon description
+    let addonSummary = '';
+    if (selectedAddons.length > 0) {
+        const addonNames = {
+            'automation': 'Automation+ Add-on',
+            'experience': 'Experience+ Add-on', 
+            'performance': 'Performance+ Add-on'
+        };
+        const selectedAddonNames = selectedAddons.map(addon => addonNames[addon]);
+        addonSummary = `<p><strong>Add-ons:</strong> ${selectedAddonNames.join(', ')}</p>`;
+    }
     
     finalSummary.innerHTML = `
         <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: var(--border-radius); margin-bottom: 1rem;">
             <h4>Contact Information</h4>
             <p><strong>Name:</strong> ${document.getElementById('fullName').value}</p>
             <p><strong>Email:</strong> ${document.getElementById('businessEmail').value}</p>
-            <p><strong>Organization:</strong> ${document.getElementById('organizationName').value || 'Not provided'}</p>
+            <p><strong>Phone:</strong> ${document.getElementById('phoneNumber').value}</p>
+            <p><strong>Organization:</strong> ${document.getElementById('organizationName').value}</p>
         </div>
         
         <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: var(--border-radius); margin-bottom: 1rem;">
-            <h4>Selection Summary</h4>
+            <h4>Cloud Test Go - Order Summary</h4>
             <p><strong>Device Types:</strong> ${selectedDeviceTypes.join(', ')}</p>
             <p><strong>Countries:</strong> ${selectedCountries.join(', ')}</p>
             <p><strong>Cities:</strong> ${selectedCities.join(', ')}</p>
             <p><strong>Selected Devices:</strong> ${deviceCount}</p>
             <p><strong>Plan:</strong> ${selectedPlan === 'yearly' ? 'Yearly' : 'Monthly'} (${devicePrice}/${selectedPlan === 'yearly' ? 'year' : 'month'})</p>
-            ${selectedAddons.length > 0 ? `<p><strong>Add-ons:</strong> ${selectedAddons.join(', ')}</p>` : ''}
+            ${addonSummary}
         </div>
         
         <div style="background: var(--primary-color); color: white; padding: 1.5rem; border-radius: var(--border-radius); text-align: center;">
@@ -1210,7 +1287,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Set default plan
     selectPlan('yearly');
     
-    console.log('Device Selection Portal initialized successfully!');
+    console.log('Purchase Cloud Test Go initialized successfully!');
 });
 
 // ===== WINDOW FUNCTIONS (for HTML onclick events) =====
