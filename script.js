@@ -10,7 +10,6 @@ let activeFilters = [];
 let totalAmount = 0;
 
 // ===== DEVICE DATA =====
-
 const deviceData = [
     { id: 1, name: "Chrome", country: "United Arab Emirates", city: "Dubai", type: "chrome", network: "WiFi", audio: false },
     { id: 2, name: "Chrome", country: "United Arab Emirates", city: "Dubai", type: "chrome", network: "WiFi", audio: false },
@@ -364,10 +363,11 @@ const deviceData = [
     { id: 350, name: "PlayStation 4", country: "US", city: "Atlanta", type: "playstation", network: "WiFi", audio: false }
 ];
 
+
 // ===== COUNTRY DATA =====
 const countryData = {
     'Australia': ['Sydney'],
-    'US': ['Chicago', 'Newark', 'Palo Alto', 'Riverside', 'Sunnyvale'],
+    'US': ['Chicago', 'Newark', 'Palo Alto', 'Riverside', 'Sunnyvale', 'Atlanta'],
     'India': ['Bangalore'],
     'Great Britain': ['London'],
     'Germany': ['Leverkusen'],
@@ -1073,7 +1073,7 @@ function updateDiscountDisplay() {
     
     if (addonCount === 0) {
         discountDisplay.classList.remove('show');
-        discountDisplay.textContent = '';
+        discountDisplay.innerHTML = '';
     } else if (addonCount === 2) {
         discountDisplay.classList.add('show');
         discountDisplay.innerHTML = '<i class="fas fa-tag"></i> 25% DISCOUNT APPLIED!<br>Two add-ons selected';
@@ -1082,7 +1082,7 @@ function updateDiscountDisplay() {
         discountDisplay.innerHTML = '<i class="fas fa-gift"></i> SPECIAL BUNDLE PRICING!<br>All three add-ons selected';
     } else {
         discountDisplay.classList.remove('show');
-        discountDisplay.textContent = '';
+        discountDisplay.innerHTML = '';
     }
 }
 
@@ -1141,7 +1141,6 @@ function updatePricingSummary() {
             discountNote = ' (special bundle pricing)';
         }
         
-        const addonPricePerDevice = addonTotal / deviceCount;
         addonDescription = `<p><strong>${selectedAddonNames.join(', ')}</strong> add-ons × <strong>${deviceCount}</strong> devices = <strong>$${addonTotal.toLocaleString()}</strong>${discountNote}</p>`;
     }
     
@@ -1159,6 +1158,102 @@ function updatePricingSummary() {
     }
 }
 
+// ===== HELPER FUNCTION TO GET DEVICE DETAILS =====
+function getSelectedDeviceDetails() {
+    const selectedDeviceIds = Object.keys(selectedDevices);
+    return selectedDeviceIds.map(deviceId => {
+        const device = deviceData.find(d => d.id == deviceId);
+        return device ? `${device.name} | ${device.country} | ${device.city}` : '';
+    }).filter(detail => detail !== '');
+}
+
+// ===== FOXYCART INTEGRATION =====
+function populateFoxyCartFields() {
+    const deviceCount = Object.keys(selectedDevices).length;
+    const devicePrice = selectedPlan === 'monthly' ? 300 : 1500;
+    const billingCycle = selectedPlan === 'monthly' ? 'monthly' : 'yearly';
+    
+    // Calculate addon total
+    let addonTotal = calculateAddonTotal(deviceCount);
+    
+    // Main product details
+    const mainProductName = `Cloud Test Go - ${billingCycle.charAt(0).toUpperCase() + billingCycle.slice(1)} Plan (${deviceCount} ${deviceCount === 1 ? 'device' : 'devices'})`;
+    const mainProductPrice = deviceCount * devicePrice;
+    const productCode = `cloudtestgo-${billingCycle}-${deviceCount}dev`;
+    
+    // Populate main product fields
+    document.getElementById('fc-name').value = mainProductName;
+    document.getElementById('fc-price').value = mainProductPrice.toFixed(2);
+    document.getElementById('fc-code').value = productCode;
+    document.getElementById('fc-quantity').value = '1';
+    
+    // Set subscription frequency for recurring billing
+    if (selectedPlan === 'monthly') {
+        document.getElementById('fc-sub-frequency').value = '1m'; // Monthly subscription
+    } else {
+        document.getElementById('fc-sub-frequency').value = '1y'; // Yearly subscription
+    }
+    
+    // Customer information
+    const fullName = document.getElementById('fullName').value;
+    const nameParts = fullName.trim().split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+    
+    document.getElementById('fc-customer-first-name').value = firstName;
+    document.getElementById('fc-customer-last-name').value = lastName;
+    document.getElementById('fc-customer-email').value = document.getElementById('businessEmail').value;
+    document.getElementById('fc-customer-phone').value = document.getElementById('phoneNumber').value;
+    
+    // Order metadata
+    document.getElementById('fc-organization').value = document.getElementById('organizationName').value;
+    document.getElementById('fc-device-types').value = selectedDeviceTypes.join(', ');
+    document.getElementById('fc-selected-countries').value = selectedCountries.join(', ');
+    document.getElementById('fc-selected-cities').value = selectedCities.join(', ');
+    document.getElementById('fc-device-count').value = deviceCount.toString();
+    document.getElementById('fc-billing-cycle').value = billingCycle;
+    
+    // Updated addon names with + suffix for FoxyCart
+    const addonNames = {
+        'automation': 'automation+',
+        'experience': 'experience+', 
+        'performance': 'performance+'
+    };
+    const selectedAddonNames = selectedAddons.map(addon => addonNames[addon]);
+    document.getElementById('fc-selected-addons').value = selectedAddonNames.join(', ');
+    
+    document.getElementById('fc-active-filters').value = activeFilters.join(', ');
+    
+    // Store device details in a more readable format for FoxyCart
+    const deviceDetails = getSelectedDeviceDetails();
+    document.getElementById('fc-selected-devices-json').value = deviceDetails.join('; ');
+    
+    // Add-ons as second product (if any selected)
+    if (selectedAddons.length > 0) {
+        const selectedAddonNamesForProduct = selectedAddons.map(addon => {
+            const names = {
+                'automation': 'Automation+',
+                'experience': 'Experience+', 
+                'performance': 'Performance+'
+            };
+            return names[addon];
+        });
+        const addonProductName = `Add-ons: ${selectedAddonNamesForProduct.join(', ')} - ${billingCycle.charAt(0).toUpperCase() + billingCycle.slice(1)} (${deviceCount} ${deviceCount === 1 ? 'device' : 'devices'})`;
+        const addonCode = `addons-${selectedAddons.join('-')}-${billingCycle}-${deviceCount}dev`;
+        
+        document.getElementById('fc-addon-name').value = addonProductName;
+        document.getElementById('fc-addon-price').value = addonTotal.toFixed(2);
+        document.getElementById('fc-addon-code').value = addonCode;
+        document.getElementById('fc-addon-quantity').value = '1';
+    } else {
+        // Clear addon fields if no addons selected
+        document.getElementById('fc-addon-name').value = '';
+        document.getElementById('fc-addon-price').value = '';
+        document.getElementById('fc-addon-code').value = '';
+        document.getElementById('fc-addon-quantity').value = '';
+    }
+}
+
 // ===== PAYMENT & COMPLETION =====
 function proceedToPayment() {
     nextStep(7);
@@ -1169,13 +1264,24 @@ function loadFinalSummary() {
     const deviceCount = Object.keys(selectedDevices).length;
     const devicePrice = selectedPlan === 'monthly' ? 300 : 1500;
     
+    // Get selected device details
+    const deviceDetails = getSelectedDeviceDetails();
+    let deviceDetailsHtml = '';
+    if (deviceDetails.length > 0) {
+        deviceDetailsHtml = `
+            <div style="margin-top: 0.5rem; font-size: 0.9rem; color: #666;">
+                ${deviceDetails.map((detail, index) => `<div>Device ${index + 1}: ${detail}</div>`).join('')}
+            </div>
+        `;
+    }
+    
     // Create addon description
     let addonSummary = '';
     if (selectedAddons.length > 0) {
         const addonNames = {
-            'automation': 'Automation+ Add-on',
-            'experience': 'Experience+ Add-on', 
-            'performance': 'Performance+ Add-on'
+            'automation': 'Automation+',
+            'experience': 'Experience+', 
+            'performance': 'Performance+'
         };
         const selectedAddonNames = selectedAddons.map(addon => addonNames[addon]);
         addonSummary = `<p><strong>Add-ons:</strong> ${selectedAddonNames.join(', ')}</p>`;
@@ -1195,7 +1301,7 @@ function loadFinalSummary() {
             <p><strong>Device Types:</strong> ${selectedDeviceTypes.join(', ')}</p>
             <p><strong>Countries:</strong> ${selectedCountries.join(', ')}</p>
             <p><strong>Cities:</strong> ${selectedCities.join(', ')}</p>
-            <p><strong>Selected Devices:</strong> ${deviceCount}</p>
+            <p><strong>Selected Devices:</strong> ${deviceCount}${deviceDetailsHtml}</p>
             <p><strong>Plan:</strong> ${selectedPlan === 'yearly' ? 'Yearly' : 'Monthly'} (${devicePrice}/${selectedPlan === 'yearly' ? 'year' : 'month'})</p>
             ${addonSummary}
         </div>
@@ -1204,79 +1310,31 @@ function loadFinalSummary() {
             <h4>Total Amount: ${totalAmount.toLocaleString()}</h4>
         </div>
     `;
+    
+    // Populate FoxyCart fields
+    populateFoxyCartFields();
 }
 
-function completePayment() {
-    showLoading();
-    
-    // Simulate payment processing
-    setTimeout(() => {
-        hideLoading();
-        
-        // Send order email (replace with actual implementation)
-        sendOrderEmail();
-        
-        // Show success modal
-        showSuccessModal();
-    }, 2000);
-}
-
-function sendOrderEmail() {
-    const orderData = {
-        customer: {
-            name: document.getElementById('fullName').value,
-            email: document.getElementById('businessEmail').value,
-            phone: document.getElementById('phoneNumber').value,
-            organization: document.getElementById('organizationName').value
-        },
-        selection: {
-            deviceTypes: selectedDeviceTypes,
-            countries: selectedCountries,
-            cities: selectedCities,
-            devices: selectedDevices,
-            filters: activeFilters
-        },
-        pricing: {
-            plan: selectedPlan,
-            addons: selectedAddons,
-            total: totalAmount
-        },
-        timestamp: new Date().toISOString()
-    };
-    
-    console.log('Order data to be sent:', orderData);
-    
-    // TODO: Implement actual email sending
-    // fetch('/api/send-order-email', {
-    //     method: 'POST',
-    //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify(orderData)
-    // });
-}
-
-function showSuccessModal() {
-    const modal = document.getElementById('successModal');
-    const modalSummary = document.getElementById('modalOrderSummary');
-    
-    modalSummary.innerHTML = `
-        <div style="text-align: left; margin-top: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: var(--border-radius);">
-            <p><strong>Order ID:</strong> ORD-${Date.now()}</p>
-            <p><strong>Devices:</strong> ${Object.keys(selectedDevices).length}</p>
-            <p><strong>Plan:</strong> ${selectedPlan === 'yearly' ? 'Yearly' : 'Monthly'}</p>
-            <p><strong>Total:</strong> ${totalAmount.toLocaleString()}</p>
-        </div>
-    `;
-    
-    modal.style.display = 'flex';
-}
-
-function closeModal() {
-    document.getElementById('successModal').style.display = 'none';
-    
-    // Reset form or redirect
-    if (confirm('Would you like to create another order?')) {
-        location.reload();
-    }
+// ===== ENTER KEY NAVIGATION FIX =====
+function setupEnterKeyNavigation() {
+    // Prevent Enter from submitting form unless on final step
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && currentStep < 7) {
+            e.preventDefault();
+            
+            // Get the currently focused element
+            const focusedElement = document.activeElement;
+            
+            // If it's an input field in step 1-6, trigger next step
+            if (focusedElement && focusedElement.tagName === 'INPUT') {
+                if (currentStep === 6) {
+                    proceedToPayment();
+                } else if (validateCurrentStep()) {
+                    nextStep(currentStep + 1);
+                }
+            }
+        }
+    });
 }
 
 // ===== INITIALIZATION =====
@@ -1293,12 +1351,30 @@ document.addEventListener('DOMContentLoaded', function() {
     // Set default plan
     selectPlan('yearly');
     
-    console.log('Purchase Cloud Test Go initialized successfully!');
+    // Setup Enter key navigation
+    setupEnterKeyNavigation();
+    
+    // Add form submission handler
+    const form = document.getElementById('foxycart-form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            // Only allow submission on step 7
+            if (currentStep < 7) {
+                e.preventDefault();
+                return false;
+            }
+            
+            // Make sure all FoxyCart fields are populated before submission
+            populateFoxyCartFields();
+            
+            return true;
+        });
+    }
+    
+    console.log('Purchase Cloud Test Go with FoxyCart initialized successfully!');
 });
 
 // ===== WINDOW FUNCTIONS (for HTML onclick events) =====
 window.nextStep = nextStep;
 window.prevStep = prevStep;
 window.proceedToPayment = proceedToPayment;
-window.completePayment = completePayment;
-window.closeModal = closeModal;
