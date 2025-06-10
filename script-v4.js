@@ -1086,7 +1086,6 @@ function selectPlan(plan) {
     document.querySelector(`[data-plan="${plan}"]`).classList.add('selected');
     
     updateAddonPricing();
-    updateDiscountDisplay(); // Add this line to update discount when plan changes
     updatePricingSummary();
 }
 
@@ -1122,7 +1121,6 @@ function toggleAddon(addon, isSelected) {
         card.classList.remove('selected');
     }
     
-    updateDiscountDisplay();
     updatePricingSummary();
 }
 
@@ -1298,19 +1296,29 @@ function populateFoxyCartFields() {
     const devicePrice = selectedPlan === 'monthly' ? 300 : 1500;
     const billingCycle = selectedPlan === 'monthly' ? 'monthly' : 'yearly';
     
-    // Calculate addon total
-    let addonTotal = calculateAddonTotal(deviceCount);
+    // Calculate addon total per device
+    let addonPricePerDevice = 0;
+    if (selectedAddons.length === 1) {
+        addonPricePerDevice = selectedPlan === 'yearly' ? 200 : 100;
+    } else if (selectedAddons.length === 2) {
+        addonPricePerDevice = selectedPlan === 'yearly' ? 300 : 150;
+    } else if (selectedAddons.length === 3) {
+        addonPricePerDevice = selectedPlan === 'yearly' ? 500 : 250;
+    }
     
-    // Main product details
-    const mainProductName = `Cloud Test Go - ${billingCycle.charAt(0).toUpperCase() + billingCycle.slice(1)} Plan (${deviceCount} ${deviceCount === 1 ? 'device' : 'devices'})`;
-    const mainProductPrice = deviceCount * devicePrice;
-    const productCode = `cloudtestgo-${billingCycle}-${deviceCount}dev`;
+    // Main product details - per device pricing
+    const mainProductName = `Cloud Test Go - ${billingCycle.charAt(0).toUpperCase() + billingCycle.slice(1)} Plan (per device)`;
+    const productCode = `cloudtestgo-${billingCycle}-perdevice`;
     
     // Populate main product fields
     document.getElementById('fc-name').value = mainProductName;
-    document.getElementById('fc-price').value = mainProductPrice.toFixed(2);
+    document.getElementById('fc-price').value = devicePrice.toFixed(2); // Price per device
     document.getElementById('fc-code').value = productCode;
-    document.getElementById('fc-quantity').value = '1';
+    document.getElementById('fc-quantity').value = deviceCount.toString(); // Quantity = number of devices
+    
+    // Update quantity constraints to allow multiple devices
+    document.querySelector('input[name="quantity_min"]').value = deviceCount.toString();
+    document.querySelector('input[name="quantity_max"]').value = deviceCount.toString();
     
     // Set subscription frequency for recurring billing
     if (selectedPlan === 'monthly') {
@@ -1327,9 +1335,6 @@ function populateFoxyCartFields() {
     const nameParts = fullName.trim().split(' ');
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
-    
-    // Debug log to check values
-    console.log('Customer info being set:', { firstName, lastName, businessEmail, phoneNumber });
     
     document.getElementById('fc-customer-first-name').value = firstName;
     document.getElementById('fc-customer-last-name').value = lastName;
@@ -1369,13 +1374,17 @@ function populateFoxyCartFields() {
             };
             return names[addon];
         });
-        const addonProductName = `Add-ons: ${selectedAddonNamesForProduct.join(', ')} - ${billingCycle.charAt(0).toUpperCase() + billingCycle.slice(1)} (${deviceCount} ${deviceCount === 1 ? 'device' : 'devices'})`;
-        const addonCode = `addons-${selectedAddons.join('-')}-${billingCycle}-${deviceCount}dev`;
+        const addonProductName = `Add-ons: ${selectedAddonNamesForProduct.join(', ')} - ${billingCycle.charAt(0).toUpperCase() + billingCycle.slice(1)} (per device)`;
+        const addonCode = `addons-${selectedAddons.join('-')}-${billingCycle}-perdevice`;
         
         document.getElementById('fc-addon-name').value = addonProductName;
-        document.getElementById('fc-addon-price').value = addonTotal.toFixed(2);
+        document.getElementById('fc-addon-price').value = addonPricePerDevice.toFixed(2); // Price per device
         document.getElementById('fc-addon-code').value = addonCode;
-        document.getElementById('fc-addon-quantity').value = '1';
+        document.getElementById('fc-addon-quantity').value = deviceCount.toString(); // Quantity = number of devices
+        
+        // Update addon quantity constraints
+        document.querySelector('input[name="2:quantity_min"]').value = deviceCount.toString();
+        document.querySelector('input[name="2:quantity_max"]').value = deviceCount.toString();
     } else {
         // Clear addon fields if no addons selected
         document.getElementById('fc-addon-name').value = '';
