@@ -11,8 +11,6 @@ let totalAmount = 0;
 
 // ===== DEVICE DATA =====
 
-
-
 const deviceData = [
     { id: 1, name: "Galaxy S9 Plus", country: "Australia", city: "Sydney", type: "android", network: "WiFi", audio: false },
     { id: 2, name: "iPhone 11", country: "Australia", city: "Sydney", type: "ios", network: "WiFi", audio: false },
@@ -1217,7 +1215,7 @@ function updatePricingSummary() {
     if (orderDetails) {
         const billingCycle = selectedPlan === 'yearly' ? 'year' : 'month';
         orderDetails.innerHTML = `
-            <p><strong>CloudTest Lite</strong> - <strong>${deviceCount}</strong> ${deviceCount === 1 ? 'device' : 'devices'} × <strong>${devicePrice}</strong> = <strong>${totalPrice.toLocaleString()}</strong></p>
+            <p><strong>CloudTest Lite</strong> - <strong>${deviceCount}</strong> ${deviceCount === 1 ? 'device' : 'devices'} × <strong>$${devicePrice}</strong> = <strong>$${totalPrice.toLocaleString()}</strong></p>
             <p><strong>Plan:</strong> ${selectedPlan === 'yearly' ? 'Yearly' : 'Monthly'} subscription</p>
         `;
     }
@@ -1364,11 +1362,14 @@ function populateFoxyCartFields() {
     const deviceDetails = getSelectedDeviceDetails();
     document.getElementById('fc-selected-devices-json').value = deviceDetails.join('; ');
 
-        // Set continue shopping URL to go back to step 6 (pricing step)
+    // Mark that user is going to FoxyCart for back button handling
+    sessionStorage.setItem('goingToFoxyCart', 'true');
+    sessionStorage.setItem('currentStep', currentStep.toString());
+
+    // Set continue shopping URL to go back to step 6 (pricing step)
     const currentURL = window.location.origin + window.location.pathname;
-    const continueShoppingURL = `${currentURL}?step=6`; // Or use query params
+    const continueShoppingURL = `${currentURL}#step6`;
     document.getElementById('fc-continue-url').value = continueShoppingURL;
-    
 }
 
 // ===== PAYMENT & COMPLETION =====
@@ -1503,16 +1504,65 @@ function setupEnterKeyNavigation() {
     });
 }
 
+// ===== BROWSER BACK BUTTON HANDLING =====
+function setupBackButtonHandling() {
+    // Handle page visibility changes (when user comes back to tab)
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden && sessionStorage.getItem('goingToFoxyCart') === 'true') {
+            sessionStorage.removeItem('goingToFoxyCart');
+            setTimeout(() => {
+                goToStep(6);
+            }, 100);
+        }
+    });
+    
+    // Handle browser back button from FoxyCart checkout
+    window.addEventListener('pageshow', function(event) {
+        // Check if user is coming back from FoxyCart
+        const referrer = document.referrer;
+        
+        // If coming back from FoxyCart checkout
+        if (referrer && referrer.includes('foxycart.com') && referrer.includes('checkout')) {
+            // Go to step 6 (pricing step)
+            setTimeout(() => {
+                goToStep(6);
+            }, 100);
+        }
+    });
+    
+    // Alternative approach using popstate event
+    window.addEventListener('popstate', function(event) {
+        // Check if we have FoxyCart in browser history
+        if (document.referrer.includes('foxycart.com')) {
+            // User hit back from FoxyCart, go to step 6
+            setTimeout(() => {
+                goToStep(6);
+            }, 100);
+        }
+    });
+}
+
 // ===== INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize progress bar
     updateProgressBar();
     
-    // Check if user is returning from FoxyCart
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('step') === '6') {
+    // Check if user is returning from FoxyCart via hash
+    if (window.location.hash === '#step6') {
         goToStep(6);
     }
+    
+    // Check if returning from FoxyCart via back button
+    if (sessionStorage.getItem('goingToFoxyCart') === 'true') {
+        sessionStorage.removeItem('goingToFoxyCart');
+        // Go to step 6 when returning
+        setTimeout(() => {
+            goToStep(6);
+        }, 100);
+    }
+
+    // Setup back button handling
+    setupBackButtonHandling();
 
     // Setup event listeners
     setupDeviceTypeSelection();
